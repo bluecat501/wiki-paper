@@ -58,3 +58,21 @@
 - **Synthesis Page**: [[2024-11-AI-Agents-Architecture-Evolution]]
 - **Papers Synthesized**: [[Yao2022-ReAct]], [[Schick2023-Toolformer]], [[Shinn2023-Reflexion]], [[Park2023-GenerativeAgents]], [[Jimenez2024-SWEbench]]
 - **Status**: 5 篇經典論文全數入庫，跨論文演進知識沉澱完成。
+
+
+## [2026-11-23] workflow | Graph-based Slide Generation Execution
+- **Action**: 依據三階段有向圖（Slide Generation Graph）執行全流程簡報生成與品質檢查
+- **Phase 1 (Outline Gate)**:
+  - 產出 10 頁教學敘事大綱，覆蓋 5 篇核心論文與 4 大認知支柱。
+  - 人機對齊審查通過 (Human Approval)。
+- **Phase 2 (Content & Unslop Gate)**:
+  - 完成逐頁內容細化，消除 AI 模板浮誇詞彙與裝飾性 Emoji。
+  - 映射 `assets/` 視覺資產：`neural-mesh.jpg` (P1), `multi-agent-network.jpg` (P7), `agent-dashboard.jpg` (P8)。
+  - 進行概念術語消歧審查，明確界定 Working Memory、Verbal Buffer 與 Memory Stream。
+- **Phase 3 (Visual Quality Gate & Remediation Loop)**:
+  - 編譯產出 `presentation.html`。
+  - 觸發 Gate 3 檢查：偵測到第 10 頁雙重破折號 (`— —`) 與裸括號語法問題。
+  - 進入 Remediation Loop：重構第 10 頁為 `.wiki-chip` 標籤晶片結構，補齊 Benchmarks 評測層與 Synthesis 綜述，文字對比度修復完成。
+- **Git Tracking**:
+  - 完成 Git 倉庫初始化與第 1 次全量版本提交 (`d264df6`)。
+- **Status**: Graph 全流程執行完成，通過所有檢查門閘。

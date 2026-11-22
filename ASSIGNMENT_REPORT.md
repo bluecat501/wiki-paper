@@ -69,7 +69,9 @@ LLM-Wiki/
 
 ## 三、 Loop / Graph 流程架構設計說明
 
-為符合作業要求的「先討論、後生成」與「知識累積」，本系統設計為 **雙迴圈管線 (Dual-Loop Architecture)**：
+為符合作業要求的「先討論、後生成」、「知識累積」以及「明確的檢查與重新生成節點」，本系統架構由兩大協同 Graph 構成：
+
+### 3.1 系統總體 Graph：文獻 Ingest 與簡報生成雙迴圈 (Dual-Loop Architecture)
 
 ```mermaid
 flowchart TD
@@ -82,44 +84,55 @@ flowchart TD
         E --> F[6. 更新全域索引 index.md 與日誌 log.md]
     end
 
-    subgraph Loop2 ["【迴圈二】知識萃取與簡報生成迴圈 (Synthesis & Slide Loop)"]
-        F --> G[7. 設定簡報受眾定位: 初學者可理解的生動比喻]
-        G --> H[8. 遍歷 Wiki 檢索核心脈絡，沉澱為 Synthesis 綜述]
-        H --> I[9. 自動編譯為互動式 presentation.html]
-        I --> J{10. 內容、邏輯與視覺檢查節點<br>斷鏈? 術語衝突? 認知負載過重?}
-        J -- 發現未被說明的艱深術語 --> H
-        J -- 檢查通過 --> K[11. 最終交付教學 HTML 簡報]
+    subgraph Slide_Graph ["【迴圈二】三階段簡報生成圖 (3-Phase Slide Generation Graph)"]
+        F --> G[階段 1: 敘事線與大綱規劃<br>Draft 10-Slide Outline]
+        G --> Gate1{檢查門閘 1: 大綱審查<br>Outline Review Gate}
+        Gate1 -- 故事線不順 / 認知斷層 --> G
+        Gate1 -- 人機對齊確認 (Approval) --> H[階段 2: 逐頁規格撰寫與視覺指派<br>Page Specification & Asset Mapping]
+        H --> Gate2{檢查門閘 2: 內容與術語審查<br>Content & Unslop Audit Gate}
+        Gate2 -- 概念衝突 / 數據模糊 --> H
+        Gate2 -- 審查通過 --> I[階段 3: HTML/CSS/JS 代碼編譯<br>Compile presentation.html]
+        I --> Gate3{檢查門閘 3: 視覺與排版健檢<br>Visual Quality Gate}
+        Gate3 -- 溢出 / 對比度不足 / 語法雜訊 --> I
+        Gate3 -- 渲染驗證通過 --> J[交付最終可瀏覽 HTML 簡報]
     end
 ```
 
-### 3.1 哪些步驟會重複執行 (Loops)？
+### 3.2 哪些步驟會重複執行 (Loops)？
 1. **迴圈一：人機討論對齊迴圈（步驟 2 ↔ 步驟 3）**
    - 每篇論文進入知識庫前，AI 先產出核心痛點（Problem）、方法創新（Method）與評測數據（Results）摘要，由人類確認是否符合該次教學的主題焦點。若焦點偏掉，則重新提煉。
-2. **迴圈二：簡報與知識庫驗證迴圈（步驟 8 ↔ 步驟 10）**
-   - 當生成簡報投影片時，若發現某一頁出現了未在 Wiki 中定義的術語（例如直接寫出了 ACI 卻未曾解釋），檢查機制會打回，要求先回流至 Wiki 補充概念，再重新渲染簡報。
+2. **迴圈二：簡報生成三層迴圈（Slide Graph 内的 3 個 Check Gates）**：
+   - **大綱層迴圈（Gate 1 ↔ 階段 1）**：大綱階段先檢驗整體認知階梯與故事線，若不合理直接在此層修正，絕不盲目推進到寫代碼。
+   - **內容層迴圈（Gate 2 ↔ 階段 2）**：檢查術語一致性與 Unslop 文案規範，確保無空洞浮誇詞彙，且 5 篇論文數據完全真實。
+   - **渲染層迴圈（Gate 3 ↔ 階段 3）**：檢查文字溢出、螢幕適配性與排版 bug（如第 10 頁破折號重複與括號問題），若未達標則重新編譯代碼。
 
-### 3.2 為什麼這樣設計？
+### 3.3 為什麼這樣設計？
 - **避免傳統 RAG 的碎紙片重組問題**：如果不先形成持久化的 Wiki 知識節點，AI 每次生成簡報時都要同時消化 5 篇動輒 20-30 頁的論文，容易產生幻覺、遺漏重要消融實驗數據，或是前後投影片對同一術語的定義互相矛盾。
-- **知識資產持續複利**：先建立 Wiki，再由 Wiki 產出簡報；即使未來要更換成 Marp、Slidev 或新增第 6 篇論文，既有的 Wiki 頁面依然完整可用。
+- **解耦「結構」、「內容」與「排版」**：傳統直接讓 AI「寫一份簡報 HTML」最常失敗的原因是：AI 同時在想故事線、想文字、寫 CSS，容易顧此失彼。將大綱（Phase 1）、細節與素材映射（Phase 2）、代碼渲染（Phase 3）嚴格分開並設置 Check Gates，才能達到最高水準的工程穩定度。
 
 ---
 
 ## 四、 實際執行結果與檢查紀錄 (Execution Log)
 
-在本次 5 篇論文的 Ingest 與簡報生成過程中，系統執行了嚴格的日誌紀錄：
+在本次 5 篇論文的 Ingest 與簡報生成過程中，系統執行了嚴格的日誌紀錄（完整日誌見 `log.md`）：
 
-1. **Ingest 階段記錄 (摘錄自 `log.md`)**：
-   - `[2026-11-22] ingest | Yao2022-ReAct`：成功下載 633KB PDF，建立 `Thought-Action-Observation` 循環公式，關聯 `[[HotpotQA]]` 與 `[[ALFWorld]]`。
-   - `[2026-11-22] ingest | Schick2023-Toolformer`：建立 Loss 增益判準公式，記錄 6.7B 小模型在 `[[SVAMP]]` 擊敗 175B GPT-3 之關鍵數據。
-   - `[2026-11-22] ingest | Shinn2023-Reflexion`：歸檔語言自省強化學習，記錄 `[[HumanEval]]` pass@1 從 67% 提升至 91% 之消融實驗。
-   - `[2026-11-22] ingest | Park2023-GenerativeAgents`：建立 Smallville 記憶流綜合檢索公式，歸檔自發湧現的情人節派對社會現象。
-   - `[2026-11-22] ingest | Jimenez2024-SWEbench`：建立 2,294 個真實 Issue 與 Docker 隔離沙盒評測紀錄，凸顯大模型在真實環境初期僅 1.7% 成功率的殘酷現實。
+1. **Ingest 階段記錄**：
+   - `[2026-11-22] Yao2022-ReAct`：成功下載 633KB PDF，建立 `Thought-Action-Observation` 循環公式，關聯 `[[HotpotQA]]` 與 `[[ALFWorld]]`。
+   - `[2026-11-22] Schick2023-Toolformer`：建立 Loss 增益判準公式，記錄 6.7B 小模型在 `[[SVAMP]]` 擊敗 175B GPT-3 之關鍵數據。
+   - `[2026-11-22] Shinn2023-Reflexion`：歸檔語言自省強化學習，記錄 `[[HumanEval]]` pass@1 從 67% 提升至 91% 之消融實驗。
+   - `[2026-11-22] Park2023-GenerativeAgents`：建立 Smallville 記憶流綜合檢索公式，歸檔自發湧現的情人節派對社會現象。
+   - `[2026-11-22] Jimenez2024-SWEbench`：建立 2,294 個真實 Issue 與 Docker 隔離沙盒評測紀錄，凸顯大模型在真實環境初期僅 1.7% 成功率的殘酷現實。
 2. **Compound 階段記錄**：
    - 產出 `wiki/syntheses/2024-11-AI-Agents-Architecture-Evolution.md`，統整出現代 Agent 的四大支柱：**規劃 (Planning) + 工具 (Tools) + 記憶 (Memory) + 行動 (Action)**。
-3. **簡報產出檢驗**：
-   - 成功生成 `presentation.html`，共 10 頁教學投影片。
-   - **Unslop 專業美化規範**：摒棄 AI 模板常見的廉價大面積彩色漸層、發光球體與大量 Emoji，轉為極度內斂安靜的 Slate/Graphite 純黑科研介面與精準的 4px 網格節奏。
-   - **整合 `assets/` 真實視覺資產**：將資料夾內的 3 張高畫質生成圖作為核心視覺焦點（FIG 01 神經認知網絡、FIG 02 多代理人群體網絡、FIG 03 軟體工程實時監控終端），大幅提升簡報的學術權威感與視覺吸引力。
+3. **Slide Graph 實際執行與檢查閉環記錄**：
+   - **Phase 1 (Gate 1 - PASS)**：提出 10 頁大綱，經人機對齊確認，確立零基礎學習者從單體模型到真實工程的敘事弧線。
+   - **Phase 2 (Gate 2 - PASS)**：將 `assets/` 內的 3 張高畫質生成圖作為核心視覺焦點（FIG 01 神經認知網絡、FIG 02 多代理人群體網絡、FIG 03 軟體工程實時監控終端），落實 Unslop 去油除俗規範（去除彩虹漸層與裝飾性 Emoji）。
+   - **Phase 3 (Gate 3 - REJECT & LOOP REMEDIATION)**：
+     - **觸發警報**：首次編譯後進行 Gate 3 檢驗，發現第 10 頁出現**雙重破折號雜訊（`— [[...]] —`）**、未經標籤化封裝的裸括號語法、以及底部狀態文字對比度不足的問題。
+     - **重新迴圈 (Loop)**：打回 Phase 3 渲染節點，重構第 10 頁 CSS，設計專屬 `.wiki-chip` 等寬標籤晶片結構，完整呈現 Papers、Concepts、Benchmarks 與 Synthesis 四大知識層。
+     - **第二次檢驗 (Gate 3 - PASS)**：視覺排版平衡、語法純淨，正式交付最終 HTML 簡報。
+4. **Git 版本控制軌跡**：
+   - 建立本地 Git 倉庫追蹤所有變更，提交初始 Commit (`d264df6`)，確保整個專案具備完整的版本歷史與回溯能力。
 
 ---
 
