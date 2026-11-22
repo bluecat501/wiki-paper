@@ -1,0 +1,6 @@
+# Dependencies & Cloned Tools
+unslop/
+
+# OS / Temporary files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Agents 是什麼？——從對話接龍到自主行動的架構演進</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* Neutral ramp: Graphite / Slate */
+      --bg-base: #090b10;
+      --deck-bg: #10141e;
+      --surface-1: #151a27;
+      --surface-2: #1b2234;
+      --surface-border: rgba(255, 255, 255, 0.08);
+      --surface-border-active: rgba(56, 189, 248, 0.35);
+
+      /* Typography colors */
+      --text-primary: #f8fafc;
+      --text-secondary: #cbd5e1;
+      --text-muted: #8492a6;
+      --text-dim: #526075;
+
+      /* Single disciplined accent */
+      --accent: #38bdf8;
+      --accent-muted: rgba(56, 189, 248, 0.12);
+
+      /* Semantic status */
+      --semantic-green: #34d399;
+      --semantic-red: #f87171;
+      --semantic-amber: #fbbf24;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Main Deck Frame */
+    #deck {
+      position: relative;
+      width: 92vw;
+      max-width: 1240px;
+      height: 84vh;
+      max-height: 780px;
+      background: var(--deck-bg);
+      border: 1px solid var(--surface-border);
+      border-radius: 20px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Deck Header */
+    .deck-header {
+      width: 100%;
+      height: 48px;
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--surface-border);
+      background: rgba(16, 20, 30, 0.85);
+    }
+
+    .brand-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      font-family: 'Fira Code', monospace;
+    }
+
+    .status-indicator {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--semantic-green);
+    }
+
+    .progress-bar-container {
+      width: 100%;
+      height: 2px;
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .progress-bar {
+      height: 100%;
+      width: 10%;
+      background: var(--accent);
+      transition: width 0.3s ease;
+    }
+
+    /* Slide Viewport */
+    .slides-viewport {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .slide {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      padding: 36px 56px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(16px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      overflow-y: auto;
+    }
+
+    .slide.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(0);
+    }
+
+    .slide.prev {
+      opacity: 0;
+      transform: translateX(-16px);
+    }
+
+    /* Typography */
+    .section-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 2.6rem;
+      font-weight: 700;
+      line-height: 1.22;
+      color: var(--text-primary);
+      letter-spacing: -0.025em;
+      margin-bottom: 12px;
+    }
+
+    h2 {
+      font-size: 2rem;
+      font-weight: 600;
+      line-height: 1.25;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+
+    p.subtitle {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 24px;
+      max-width: 900px;
+    }
+
+    /* Grids & Cards */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      align-items: stretch;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .card {
+      background: var(--surface-1);
+      border: 1px solid var(--surface-border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      transition: border-color 0.2s ease, background 0.2s ease;
+    }
+    .card:hover {
+      background: var(--surface-2);
+      border-color: var(--surface-border-active);
+    }
+
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-body {
+      font-size: 0.92rem;
+      color: var(--text-secondary);
+      line-height: 1.65;
+      flex: 1;
+    }
+
+    /* Visual Media Containers */
+    .hero-media-box {
+      width: 100%;
+      height: 100%;
+      min-height: 380px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--surface-border);
+      background: #000;
+      position: relative;
+    }
+    .hero-media-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      filter: brightness(0.92) contrast(1.05);
+    }
+    .media-caption {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 10px 16px;
+      background: rgba(10, 14, 22, 0.85);
+      border-top: 1px solid var(--surface-border);
+      font-family: 'Fira Code', monospace;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      backdrop-filter: blur(8px);
+    }
+
+    /* Terminal Simulation */
+    .terminal-box {
+      background: #080a10;
+      border: 1px solid var(--surface-border);
+      border-radius: 10px;
+      padding: 16px 18px;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.85rem;
+      line-height: 1.7;
+      height: 100%;
+    }
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 0.74rem;
+      color: var(--text-dim);
+    }
+    .thought { color: var(--semantic-amber); }
+    .action { color: var(--accent); }
+    .obs { color: var(--semantic-green); }
+
+    /* Tables */
+    table.slide-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      margin-top: 10px;
+    }
+    table.slide-table th {
+      background: var(--surface-2);
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--text-primary);
+      border-bottom: 1px solid var(--surface-border);
+    }
+    table.slide-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: var(--text-secondary);
+      font-variant-numeric: tabular-nums;
+    }
+    table.slide-table tr.active-row td {
+      background: rgba(56, 189, 248, 0.08);
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    /* Wiki Chips & Badges */
+    .wiki-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.8rem;
+      color: var(--accent);
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.22);
+      padding: 3px 8px;
+      border-radius: 5px;
+      white-space: nowrap;
+    }
+    .wiki-chip .bracket {
+      color: var(--text-dim);
+      font-weight: 400;
+    }
+
+    .wiki-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.75rem;
+      color: var(--accent);
+      background: var(--accent-muted);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 3px 8px;
+      border-radius: 5px;
+      margin-top: 10px;
+      width: fit-content;
+    }
+
+    .node-row {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+    .node-row:last-child {
+      border-bottom: none;
+    }
+    .node-desc {
+      color: var(--text-secondary);
+      flex: 1;
+    }
+
+    /* Controls Bar */
+    .controls {
+      height: 56px;
+      border-top: 1px solid var(--surface-border);
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--deck-bg);
+    }
+
+    .slide-counter {
+      font-family: 'Fira Code', monospace;
+      font-size: 0.84rem;
+      color: var(--text-muted);
+    }
+
+    .nav-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    button.btn {
+      background: var(--surface-1);
+      border: 1px solid var(--surface-border);
+      color: var(--text-primary);
+      padding: 7px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.86rem;
+      font-weight: 500;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    button.btn:hover:not(:disabled) {
+      background: var(--surface-2);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    button.btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    ul.clean-list {
+      list-style: none;
+      padding: 0;
+    }
+    ul.clean-list li {
+      position: relative;
+      padding-left: 18px;
+      margin-bottom: 8px;
+      line-height: 1.6;
+    }
+    ul.clean-list li::before {
+      content: '—';
+      position: absolute;
+      left: 0;
+      color: var(--text-dim);
+    }
+  </style>
+</head>
+<body>
+
+  <div id="deck">
+    <!-- Header -->
+    <div class="deck-header">
+      <div class="brand-meta">
+        <span class="status-indicator"></span>
+        <span>LLM WIKI RESEARCH REPO</span>
+        <span style="color: var(--text-dim);">/</span>
+        <span>AI-AGENTS-FOUNDATION</span>
+      </div>
+      <div class="brand-meta">
+        <span style="color: var(--text-dim);">OBSIDIAN FIRST • VERIFIED KNOWLEDGE</span>
+      </div>
+    </div>
+
+    <!-- Progress Indicator -->
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+
+    <!-- Slides Viewport -->
+    <div class="slides-viewport">
+
+      <!-- Slide 1: Cover (Split with Real Hero Asset) -->
+      <div class="slide active" data-slide="1">
+        <div class="grid-2" style="align-items: center; gap: 40px;">
+          <div>
+            <div class="section-label">Lecture 01 • Architecture & Evolution</div>
+            <h1>AI Agents 是什麼？</h1>
+            <p class="subtitle">從「純文字對話接龍」到「具備感知、思考、工具與自省能力」的自主智慧代理人架構演進史。</p>
+
+            <div style="display: flex; gap: 12px; margin-top: 10px;">
+              <div class="card" style="padding: 14px 18px; flex: 1;">
+                <div style="font-size: 0.8rem; color: var(--text-muted); font-family: 'Fira Code';">SOURCES</div>
+                <div style="font-size: 0.95rem; font-weight: 600; margin-top: 4px;">5 篇核心頂會論文</div>
+              </div>
+              <div class="card" style="padding: 14px 18px; flex: 1;">
+                <div style="font-size: 0.8rem; color: var(--text-muted); font-family: 'Fira Code';">FRAMEWORK</div>
+                <div style="font-size: 0.95rem; font-weight: 600; margin-top: 4px;">4 大認知支柱體系</div>
+              </div>
+            </div>
+
+            <div style="margin-top: 24px; font-size: 0.85rem; color: var(--text-dim);">
+              提示：使用鍵盤左右鍵 <kbd style="font-family: 'Fira Code'; padding: 2px 5px; background: var(--surface-1); border: 1px solid var(--surface-border); border-radius: 4px;">←</kbd> <kbd style="font-family: 'Fira Code'; padding: 2px 5px; background: var(--surface-1); border: 1px solid var(--surface-border); border-radius: 4px;">→</kbd> 切換簡報
+            </div>
+          </div>
+
+          <div class="hero-media-box">
+            <img src="assets/neural-mesh.jpg" alt="Neural Synaptic Mesh">
+            <div class="media-caption">
+              <span>FIG 01. COGNITIVE SYNAPTIC NETWORK</span>
+              <span>WIKI ASSET</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 2: The Problem -->
+      <div class="slide" data-slide="2">
+        <div class="section-label">Background • The Problem</div>
+        <h2>為什麼 ChatGPT 不等於 AI Agent？</h2>
+        <p class="subtitle">傳統大型語言模型（LLM）本質是高維度機率接龍，宛如「被關在房間裡的智者」。</p>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title" style="color: var(--semantic-red);">純語言模型的邊界缺陷</div>
+            <div class="card-body">
+              <ul class="clean-list">
+                <li><b>缺乏行動力 (No Action)</b>：輸出僅止於終端文字，無法自主點擊網頁、操作檔案或調用環境。</li>
+                <li><b>缺乏外部感知 (No Grounding)</b>：受限於預訓練知識截止期，對即時事實容易產生虛構幻覺。</li>
+                <li><b>缺乏長期記憶 (No Persistence)</b>：會話結束即重置上下文，無法跨任務累積經驗。</li>
+                <li><b>缺乏自省機制 (No Reflection)</b>：一旦前期推理步驟偏差，容易沿著錯誤邏輯貫徹到底。</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title" style="color: var(--semantic-green);">AI Agent 的系統本質</div>
+            <div class="card-body">
+              Agent 並非單一巨大的黑箱神經網絡，而是<b>圍繞核心語言模型構建的「認知操作系統」</b>。
+              <br><br>
+              <ul class="clean-list">
+                <li><b>外部工具箱 (Tools)</b>：賦予計算機、搜尋引擎與 API 調用能力。</li>
+                <li><b>規劃決策體系 (Planning)</b>：將高階模糊指令遞歸拆解為可執行的微步驟。</li>
+                <li><b>持久化記憶 (Memory)</b>：將試錯經驗與情境狀態沉澱為結構化數據。</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 3: Four Pillars -->
+      <div class="slide" data-slide="3">
+        <div class="section-label">Architecture • The 4 Pillars</div>
+        <h2>現代 AI Agent 的四大認知支柱</h2>
+        <p class="subtitle">任何具備自主能動性的代理人系統，均建立在這四項能力的有機閉環上。</p>
+
+        <div class="grid-4">
+          <div class="card">
+            <div style="font-size: 0.78rem; font-family: 'Fira Code'; color: var(--accent);">PILLAR 01</div>
+            <div class="card-title" style="margin-top: 6px;">規劃 Planning</div>
+            <div class="card-body">將複雜目標分解為逐步子任務，具備前向探索與動態調整路徑能力。</div>
+            <div class="wiki-tag">[[Yao2022-ReAct]]</div>
+          </div>
+          <div class="card">
+            <div style="font-size: 0.78rem; font-family: 'Fira Code'; color: var(--accent);">PILLAR 02</div>
+            <div class="card-title" style="margin-top: 6px;">工具 Tools</div>
+            <div class="card-body">自主感知何時需要連接外部程式碼環境、資料庫或計算引擎。</div>
+            <div class="wiki-tag">[[Schick2023-Toolformer]]</div>
+          </div>
+          <div class="card">
+            <div style="font-size: 0.78rem; font-family: 'Fira Code'; color: var(--accent);">PILLAR 03</div>
+            <div class="card-title" style="margin-top: 6px;">記憶 Memory</div>
+            <div class="card-body">包含工作上下文緩衝、短期自省文字日誌與檢索式長期記憶流。</div>
+            <div class="wiki-tag">[[Shinn2023-Reflexion]]</div>
+          </div>
+          <div class="card">
+            <div style="font-size: 0.78rem; font-family: 'Fira Code'; color: var(--accent);">PILLAR 04</div>
+            <div class="card-title" style="margin-top: 6px;">行動 Action</div>
+            <div class="card-body">在隔離環境或數位世界具體下達指令，並接收真實 Observation 反饋。</div>
+            <div class="wiki-tag">[[Jimenez2024-SWEbench]]</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 4: Milestone 1 - ReAct -->
+      <div class="slide" data-slide="4">
+        <div class="section-label">Milestone 01 • Yao et al., ICLR 2023</div>
+        <h2>ReAct：思考與行動的交替循環</h2>
+        <p class="subtitle">將模型的動作空間擴展為 $\mathcal{A}_{\text{ReAct}} = \mathcal{A}_{\text{action}} \cup \mathcal{A}_{\text{thought}}$，奠定現代代理人執行骨幹。</p>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">機制推導與實證效益</div>
+            <div class="card-body">
+              純推理 (CoT) 容易在封閉環境累積事實幻覺；純行動 (Act) 則缺乏長程目標規劃。
+              <br><br>
+              ReAct 提出 <b>Thought → Action → Observation</b> 交替軌跡：
+              <ul class="clean-list" style="margin-top: 10px;">
+                <li><b>Thought</b>：更新內部狀態，規劃下一步（不改變外部環境）。</li>
+                <li><b>Action</b>：調用特定工具 API。</li>
+                <li><b>Observation</b>：由外部環境返回真實資料。</li>
+              </ul>
+              <br>
+              在具身決策評測 <b>[[ALFWorld]]</b> 中，成功率從純行動的 45% 大幅躍升至 <b>71%</b>。
+            </div>
+            <div class="wiki-tag">[[Yao2022-ReAct]]</div>
+          </div>
+
+          <div class="terminal-box">
+            <div class="terminal-bar">
+              <span>RUNTIME_TRAJECTORY.LOG</span>
+              <span>INTERACTIVE SESSION</span>
+            </div>
+            <div class="thought">Thought 1: 使用者詢問愛因斯坦逝世年份，需檢索維基百科。</div>
+            <div class="action">Action 1: Search["Albert Einstein"]</div>
+            <div class="obs">Observation 1: 德國裔物理學家，生於 1879 年，卒於 1955 年 4 月 18 日。</div>
+            <div class="thought">Thought 2: 已取得驗證年份資訊，可形成最終結論。</div>
+            <div class="action">Action 2: Finish["1955 年"]</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 5: Milestone 2 - Toolformer -->
+      <div class="slide" data-slide="5">
+        <div class="section-label">Milestone 02 • Schick et al., NeurIPS 2023</div>
+        <h2>Toolformer：模型如何學會自主調用工具</h2>
+        <p class="subtitle">擺脫提示詞工程，透過自監督 Loss 增益將工具調用能力內化至神經網絡權重。</p>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">自監督過濾判準 (Loss-based Criterion)</div>
+            <div class="card-body">
+              模型無須人工手寫 API 範例，而是比較執行 API 前後的預測困惑度增益：
+              <div style="background: var(--surface-2); padding: 10px 14px; border-radius: 6px; font-family: 'Fira Code'; font-size: 0.85rem; margin: 12px 0; color: var(--accent);">
+                Loss(無工具) - Loss(有工具) ≥ τ
+              </div>
+              只有當某個 API 調用結果確實能顯著降低後續文本生成的交叉熵損失時，該調用才會被納入微調數據集。
+            </div>
+            <div class="wiki-tag">[[Schick2023-Toolformer]]</div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">SVAMP 數學推理評測對照</div>
+            <div class="card-body">
+              <table class="slide-table">
+                <thead>
+                  <tr><th>模型架構</th><th>參數規模</th><th>準確率</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>GPT-3 (text-davinci-002)</td><td>175B</td><td>37.8%</td></tr>
+                  <tr><td>GPT-J (基礎底模)</td><td>6.7B</td><td>19.3%</td></tr>
+                  <tr class="active-row">
+                    <td><b>Toolformer (自主調用計算機)</b></td>
+                    <td><b>6.7B</b></td>
+                    <td><b>42.1% (超越 175B)</b></td>
+                  </tr>
+                </tbody>
+              </table>
+              <div style="margin-top: 14px; font-size: 0.84rem; color: var(--text-muted); line-height: 1.5;">
+                實證結論：為小模型配置適當的外部計算工具，其成效遠勝將模型盲目堆疊 30 倍參數量。
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 6: Milestone 3 - Reflexion -->
+      <div class="slide" data-slide="6">
+        <div class="section-label">Milestone 03 • Shinn et al., NeurIPS 2023</div>
+        <h2>Reflexion：基於語言反思的無梯度強化</h2>
+        <p class="subtitle">以自然語言診斷取代數值獎勵，在不更新模型參數的情況下實現迭代自我除錯。</p>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">三元組運作機制</div>
+            <div class="card-body">
+              <ul class="clean-list">
+                <li><b>Actor (行動者)</b>：生成解題軌跡與行動指令。</li>
+                <li><b>Evaluator (評判者)</b>：檢驗程式單元測試或環境回饋。</li>
+                <li><b>Self-Reflection (反思模組)</b>：任務失敗時，生成具體文字檢討，寫入記憶緩存作為下一輪先驗條件。</li>
+              </ul>
+              <div style="margin-top: 12px; font-size: 0.88rem; color: var(--text-muted);">
+                避免了傳統強化學習需要百萬級梯度的昂貴開銷，亦突破了代理人重複犯錯的執行死循環。
+              </div>
+            </div>
+            <div class="wiki-tag">[[Shinn2023-Reflexion]]</div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">HumanEval 程式合成評測表現</div>
+            <div class="card-body">
+              <div style="margin-bottom: 12px;">
+                <div style="font-size: 0.82rem; color: var(--text-muted);">GPT-4 零樣本基準 (Zero-shot)</div>
+                <div style="font-size: 1.4rem; font-weight: 600; font-family: 'Fira Code';">67.0%</div>
+              </div>
+              <div style="margin-bottom: 12px;">
+                <div style="font-size: 0.82rem; color: var(--text-muted);">經過第 1 次反思修正 (Trial 1)</div>
+                <div style="font-size: 1.4rem; font-weight: 600; font-family: 'Fira Code';">79.3%</div>
+              </div>
+              <div>
+                <div style="font-size: 0.82rem; color: var(--accent);">完成第 4 次反思閉環 (Trial 4)</div>
+                <div style="font-size: 1.8rem; font-weight: 700; font-family: 'Fira Code'; color: var(--semantic-green);">91.0%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 7: Milestone 4 - Generative Agents (With Real Network Asset) -->
+      <div class="slide" data-slide="7">
+        <div class="section-label">Milestone 04 • Park et al., UIST 2023</div>
+        <h2>Generative Agents：長期記憶流與社會模擬</h2>
+        <p class="subtitle">史丹佛虛擬小鎮：結合時效衰減、重要性權重與反思抽象的計算認知架構。</p>
+
+        <div class="grid-2">
+          <div>
+            <div class="card" style="margin-bottom: 14px;">
+              <div class="card-title">記憶流檢索公式 (Retrieval Function)</div>
+              <div class="card-body" style="font-size: 0.86rem;">
+                系統針對海量歷史觀察進行動態相關度排序：
+                <div style="background: var(--surface-2); padding: 8px 12px; border-radius: 6px; font-family: 'Fira Code'; font-size: 0.82rem; margin: 8px 0; color: var(--accent);">
+                  Score = α·時效性 + β·重要性 + γ·語義相關性
+                </div>
+                並透過定期 Reflection 模組將瑣碎記憶歸納為高階信念（Insights）。
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">自發湧現的群體社會行為</div>
+              <div class="card-body" style="font-size: 0.86rem;">
+                未寫入任何劇本，僅給予單一初始通知，25 位 Agent 自主完成：
+                <ul class="clean-list" style="margin-top: 6px;">
+                  <li><b>資訊擴散</b>：情人節派對消息透過街頭偶遇自然傳遞。</li>
+                  <li><b>協同分工</b>：自主協商場地佈置、發出邀請函與準備點心。</li>
+                </ul>
+              </div>
+              <div class="wiki-tag">[[Park2023-GenerativeAgents]]</div>
+            </div>
+          </div>
+
+          <div class="hero-media-box">
+            <img src="assets/multi-agent-network.jpg" alt="Multi-Agent Network Graph">
+            <div class="media-caption">
+              <span>FIG 02. MULTI-AGENT INTERACTION GRAPH</span>
+              <span>WIKI ASSET</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 8: Milestone 5 - SWE-bench (With Real Dashboard Asset) -->
+      <div class="slide" data-slide="8">
+        <div class="section-label">Milestone 05 • Jimenez et al., ICLR 2024</div>
+        <h2>SWE-bench：真實軟體工程的殘酷檢驗</h2>
+        <p class="subtitle">走出單函數測試玩具環境，評測 Agent 在大型 GitHub 倉庫中自主定位並修復 Issue 的能力。</p>
+
+        <div class="grid-2">
+          <div class="hero-media-box">
+            <img src="assets/agent-dashboard.jpg" alt="Agent Runtime Dashboard">
+            <div class="media-caption">
+              <span>FIG 03. SWE-AGENT RUNTIME MONITOR</span>
+              <span>WIKI ASSET</span>
+            </div>
+          </div>
+
+          <div>
+            <div class="card" style="margin-bottom: 14px;">
+              <div class="card-title" style="color: var(--semantic-amber);">代碼刷題與真實工程的 Reality Gap</div>
+              <div class="card-body" style="font-size: 0.88rem;">
+                在 HumanEval 能拿近 90% 的頂尖模型，初登包含 2,294 個真實 Issue 的 SWE-bench 時：
+                <ul class="clean-list" style="margin-top: 8px;">
+                  <li>GPT-4 初代端到端修復率僅 <b>1.7%</b>。</li>
+                  <li>Claude 2 初代端到端修復率僅 <b>4.8%</b>。</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title" style="color: var(--semantic-green);">現代工程代理人的突破 (2024+)</div>
+              <div class="card-body" style="font-size: 0.88rem;">
+                透過專屬代理人介面（ACI）、文件局部搜尋工具與沙盒測試反思迴圈，當前前沿系統成功率已突破 <b>40%~50%</b>，標誌著 Agent 正式邁向實際生產力部署。
+              </div>
+              <div class="wiki-tag">[[Jimenez2024-SWEbench]]</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 9: Synthesis & Conclusion -->
+      <div class="slide" data-slide="9">
+        <div class="section-label">Synthesis • Key Takeaways</div>
+        <h2>總結：走向自主工程代理人時代</h2>
+        <p class="subtitle">Agent 不是來取代人類思考的，而是作為人類智能的高階外包與認知延伸。</p>
+
+        <div class="grid-3">
+          <div class="card">
+            <div class="card-title">人類角色的轉變</div>
+            <div class="card-body">
+              從親自手寫每一行代碼與文檔的執行者，轉型為<b>制定目標邊界、評估反思結果與審核交付的指揮者 (Director)</b>。
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">閉環大於單點參數</div>
+            <div class="card-body">
+              實證表明，具備「工具調用 + 自我反思 + 記憶存儲」的輕量模型，表現遠勝單次裸跑的大規模模型。
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">知識庫的持久累積</div>
+            <div class="card-body">
+              如同本次實驗：建立 LLM Wiki 知識庫，將研究洞察沉澱為可變資產，並自動編譯為教學簡報。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 10: Wiki Sources -->
+      <div class="slide" data-slide="10">
+        <div class="section-label">Appendix • Knowledge Base Graph</div>
+        <h2>本簡報背後之 LLM Wiki 節點架構</h2>
+        <p class="subtitle">本教學簡報直接編譯自本地 Wiki 知識庫，所有概念、數據與演算法均可回溯至對應的筆記與原始文獻。</p>
+
+        <div class="grid-2">
+          <!-- Left: Papers Layer -->
+          <div class="card">
+            <div class="card-title" style="justify-content: space-between;">
+              <span>核心論文節點 (wiki/papers/)</span>
+              <span style="font-family: 'Fira Code'; font-size: 0.75rem; color: var(--accent);">5 PAPERS</span>
+            </div>
+            <div class="card-body">
+              <div class="node-row">
+                <span class="wiki-chip"><span class="bracket">[[</span>Yao2022-ReAct<span class="bracket">]]</span></span>
+                <span class="node-desc">Thought-Action-Observation 互動循環基石</span>
+              </div>
+              <div class="node-row">
+                <span class="wiki-chip"><span class="bracket">[[</span>Schick2023-Toolformer<span class="bracket">]]</span></span>
+                <span class="node-desc">自監督 Loss 增益之工具調用權重微調</span>
+              </div>
+              <div class="node-row">
+                <span class="wiki-chip"><span class="bracket">[[</span>Shinn2023-Reflexion<span class="bracket">]]</span></span>
+                <span class="node-desc">自然語言自省強化學習與免梯度試錯除錯</span>
+              </div>
+              <div class="node-row">
+                <span class="wiki-chip"><span class="bracket">[[</span>Park2023-GenerativeAgents<span class="bracket">]]</span></span>
+                <span class="node-desc">記憶流檢索、高階反思與虛擬小鎮社會模擬</span>
+              </div>
+              <div class="node-row">
+                <span class="wiki-chip"><span class="bracket">[[</span>Jimenez2024-SWEbench<span class="bracket">]]</span></span>
+                <span class="node-desc">真實開源 GitHub 倉庫端到端 Issue 修復評測</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Concepts, Benchmarks & Synthesis -->
+          <div style="display: flex; flex-direction: column; gap: 14px;">
+            <div class="card" style="padding: 16px 20px;">
+              <div class="card-title" style="font-size: 0.95rem; margin-bottom: 8px;">
+                核心概念節點 (wiki/concepts/)
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                <span class="wiki-chip"><span class="bracket">[[</span>ReAct<span class="bracket">]]</span></span>
+                <span class="wiki-chip"><span class="bracket">[[</span>Toolformer<span class="bracket">]]</span></span>
+                <span class="wiki-chip"><span class="bracket">[[</span>Reflexion<span class="bracket">]]</span></span>
+                <span class="wiki-chip"><span class="bracket">[[</span>Self-Reflection<span class="bracket">]]</span></span>
+                <span class="wiki-chip"><span class="bracket">[[</span>Agent Memory Systems<span class="bracket">]]</span></span>
+                <span class="wiki-chip"><span class="bracket">[[</span>External Tool Use<span class="bracket">]]</span></span>
+                <span class="wiki-chip"><span class="bracket">[[</span>Multi-Agent Systems<span class="bracket">]]</span></span>
+              </div>
+            </div>
+
+            <div class="card" style="padding: 16px 20px;">
+              <div class="card-title" style="font-size: 0.95rem; margin-bottom: 8px;">
+                評測基準節點 (wiki/benchmarks/)
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                <span class="wiki-chip"><span class="bracket">[[</span>HotpotQA<span class="bracket">]]</span></span>
+                <span class="wiki-chip"><span class="bracket">[[</span>ALFWorld<span class="bracket">]]</span></span>
+                <span class="wiki-chip"><span class="bracket">[[</span>SVAMP<span class="bracket">]]</span></span>
+                <span class="wiki-chip"><span class="bracket">[[</span>HumanEval<span class="bracket">]]</span></span>
+                <span class="wiki-chip"><span class="bracket">[[</span>SWE-bench<span class="bracket">]]</span></span>
+              </div>
+            </div>
+
+            <div class="card" style="padding: 14px 20px; background: rgba(56, 189, 248, 0.05); border-color: rgba(56, 189, 248, 0.25);">
+              <div style="font-size: 0.78rem; font-family: 'Fira Code'; color: var(--accent); margin-bottom: 4px;">
+                CROSS-PAPER SYNTHESIS
+              </div>
+              <div style="display: flex; align-items: baseline; gap: 8px;">
+                <span class="wiki-chip"><span class="bracket">[[</span>2024-11-AI-Agents-Architecture-Evolution<span class="bracket">]]</span></span>
+                <span style="font-size: 0.85rem; color: var(--text-secondary);">AI Agents 架構演進史綜述</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Navigation Controls -->
+    <div class="controls">
+      <div class="slide-counter" id="slideCounter">SLIDE 01 / 10</div>
+      <div class="nav-buttons">
+        <button class="btn" id="prevBtn" onclick="prevSlide()" disabled>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+          Previous
+        </button>
+        <button class="btn" id="nextBtn" onclick="nextSlide()">
+          Next
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentSlide = 1;
+    const totalSlides = 10;
+
+    function updateDeck() {
+      const slides = document.querySelectorAll('.slide');
+      slides.forEach((slide) => {
+        const slideIndex = parseInt(slide.getAttribute('data-slide'));
+        slide.classList.remove('active', 'prev');
+        if (slideIndex === currentSlide) {
+          slide.classList.add('active');
+        } else if (slideIndex < currentSlide) {
+          slide.classList.add('prev');
+        }
+      });
+
+      // Update progress bar
+      const progressPercent = (currentSlide / totalSlides) * 100;
+      document.getElementById('progressBar').style.width = progressPercent + '%';
+
+      // Update counter
+      const paddedCurrent = currentSlide < 10 ? `0${currentSlide}` : currentSlide;
+      const paddedTotal = totalSlides < 10 ? `0${totalSlides}` : totalSlides;
+      document.getElementById('slideCounter').innerText = `SLIDE ${paddedCurrent} / ${paddedTotal}`;
+
+      // Update button states
+      document.getElementById('prevBtn').disabled = (currentSlide === 1);
+      document.getElementById('nextBtn').disabled = (currentSlide === totalSlides);
+    }
+
+    function nextSlide() {
+      if (currentSlide < totalSlides) {
+        currentSlide++;
+        updateDeck();
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 1) {
+        currentSlide--;
+        updateDeck();
+      }
+    }
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        nextSlide();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        prevSlide();
+      }
+    });
+
+    updateDeck();
+  </script>
+</body>
+</html>
